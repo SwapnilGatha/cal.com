@@ -22,6 +22,8 @@ services:
       - POSTGRES_DB=calendso
     networks:
       - stack
+    ports:
+      - "5433:5432"
 
   redis:
     container_name: redis
@@ -35,7 +37,7 @@ services:
       - "${REDIS_PORT:-6379}:6379"
 
   calcom:
-    image: calcom.docker.scarf.sh/calcom/cal.com
+    image: calcom.docker.scarf.sh/calcom/cal.com:v6.0.7-arm
     build:
       context: .
       dockerfile: Dockerfile
@@ -119,7 +121,7 @@ services:
 
   # Optional use of Prisma Studio. In production, comment out or remove the section below to prevent unwanted access to your database.
   studio:
-    image: calcom.docker.scarf.sh/calcom/cal.com
+    image: calcom.docker.scarf.sh/calcom/cal.com:v6.0.7-arm
     restart: always
     networks:
       - stack
