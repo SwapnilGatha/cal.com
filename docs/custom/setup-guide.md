@@ -95,3 +95,31 @@ A script at `packages/prisma/seed-oauth.ts` was used to create the initial Platf
 
 - **Port Conflicts**: If port 6379 is busy, ensure `.env` has `REDIS_PORT=6380`.
 - **Database Connection Issues**: Ensure the application's `DATABASE_URL` uses the container name `database` when running inside Docker, or `localhost` when running scripts from the host.
+
+---
+
+## 6. Shadow User Integration (A ↔ B Booking)
+
+This is the recommended approach for custom React applications requiring free any-to-any booking between members.
+
+### How it Works
+Instead of managed users, your backend creates "Standard Users" in Cal.com automatically. Cal.com handles the complexity of availability and conflicts.
+
+### Syncing Users
+Use the script at `packages/prisma/shadow-user-sync.ts`:
+```bash
+# Seed test users
+DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts seed-test
+
+# Sync a specific user from your app
+DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts sync <email> <name> <username>
+```
+
+### Verified Booking Links
+Once synced, users are bookable via standard URLs:
+- `http://localhost:3000/user-b/30min`
+- `http://localhost:3000/user-c/30min`
+- `http://localhost:3000/user-d/30min`
+
+### Backend Mapping Recommendation
+Store the Cal.com `username` in your application's user table to dynamically generate booking links for your frontend embeds.
