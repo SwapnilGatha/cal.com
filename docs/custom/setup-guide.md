@@ -113,7 +113,17 @@ DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso
 
 # Sync a specific user from your app
 DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts sync <email> <name> <username>
+
+# Update user availability (Working Hours)
+# Usage: update-availability <username> <days:1,2,3> <start:HH:mm:ss> <end:HH:mm:ss>
+DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts update-availability user-b 1,3,5 10:00:00 16:00:00
 ```
+
+### Managing Availability
+The sync script allows you to update when a user is bookable. 
+- **Days**: 0 = Sunday, 1 = Monday, ..., 6 = Saturday.
+- **Time**: Must be in `HH:mm:ss` format.
+- **Example**: `1,3,5` sets the user to be available only on Mon, Wed, and Fri.
 
 ### Verified Booking Links
 Once synced, users are bookable via standard URLs:
