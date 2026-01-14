@@ -64,6 +64,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=${DATABASE_URL}
+      - WEBAPP_URL=http://localhost:3000
+      - NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
+      - NEXTAUTH_URL=http://localhost:3000
     depends_on:
       - database
 
@@ -89,6 +92,9 @@ services:
       - DATABASE_READ_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
       - DATABASE_WRITE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=${DATABASE_URL}
+      - WEBAPP_URL=http://localhost:3000
+      - NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
+      - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - REDIS_URL=${REDIS_URL}
@@ -131,6 +137,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=${DATABASE_URL}
+      - WEBAPP_URL=http://localhost:3000
+      - NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
+      - NEXTAUTH_URL=http://localhost:3000
     depends_on:
       - database
     command:
