@@ -2,7 +2,7 @@ import process from 'node:process';
 import { prisma } from './index';
 import { hash } from 'bcryptjs';
 
-async function updateAvailability(userId: number, scheduleId: number, days: number[], startTimeStr: string, endTimeStr: string) {
+async function updateAvailability(userId: number, scheduleId: number, days: number[], startTimeStr: string, endTimeStr: string): Promise<void> {
   // Delete existing availability for this schedule to reset it
   await prisma.availability.deleteMany({
     where: { scheduleId },
@@ -21,7 +21,51 @@ async function updateAvailability(userId: number, scheduleId: number, days: numb
   console.log(`Availability updated: ${days.join(',')} from ${startTimeStr} to ${endTimeStr}`);
 }
 
-async function createShadowUser(email: string, fullName: string, username: string) {
+interface SimpleSchedule {
+  id: number;
+}
+
+interface SimpleUser {
+  id: number;
+  username: string | null;
+  email: string;
+}
+
+async function ensureDefaultEventType(user: SimpleUser, schedule: SimpleSchedule): Promise<void> {
+  const eventTypeSlug = '30min';
+  const existingEventType = await prisma.eventType.findFirst({
+    where: { userId: user.id, slug: eventTypeSlug },
+    include: { users: true },
+  });
+
+  if (!existingEventType) {
+    await prisma.eventType.create({
+      data: {
+        title: '30 Minute Meeting',
+        slug: eventTypeSlug,
+        length: 30,
+        userId: user.id,
+        schedulingType: null, // Default
+        position: 0,
+        scheduleId: schedule.id, // Link the schedule!
+        users: { connect: [{ id: user.id }] },
+      },
+    });
+    console.log(`Event type '30min' created for ${user.username}`);
+  } else if (!existingEventType.scheduleId || existingEventType.users.length === 0) {
+    // If it exists but has no schedule, or no users linked, update it
+    await prisma.eventType.update({
+      where: { id: existingEventType.id },
+      data: { 
+        scheduleId: schedule.id,
+        users: { connect: [{ id: user.id }] },
+      },
+    });
+    console.log(`Event type '30min' updated/linked for ${user.username}`);
+  }
+}
+
+async function createShadowUser(email: string, fullName: string, username: string): Promise<SimpleUser> {
   // 1. Hash a default password (they won't use it, but Cal.com requires it)
   const hashedPassword = await hash('shadow-password-123', 12);
 
@@ -33,11 +77,7 @@ async function createShadowUser(email: string, fullName: string, username: strin
       email,
       username,
       name: fullName,
-      password: {
-        create: {
-          hash: hashedPassword,
-        },
-      },
+      password: { create: { hash: hashedPassword } },
       identityProvider: 'CAL',
       completedOnboarding: true,
       timeZone: 'UTC',
@@ -66,46 +106,11 @@ async function createShadowUser(email: string, fullName: string, username: strin
   }
 
   // 5. Create a Default Event Type (30 Min Meeting)
-  const eventTypeSlug = '30min';
-  const existingEventType = await prisma.eventType.findFirst({
-    where: { userId: user.id, slug: eventTypeSlug },
-    include: { users: true },
-  });
-
-  if (!existingEventType) {
-    await prisma.eventType.create({
-      data: {
-        title: '30 Minute Meeting',
-        slug: eventTypeSlug,
-        length: 30,
-        userId: user.id,
-        schedulingType: null, // Default
-        position: 0,
-        scheduleId: schedule.id, // Link the schedule!
-        users: {
-          connect: [{ id: user.id }],
-        },
-      },
-    });
-    console.log(`Event type '30min' created for ${username}`);
-  } else if (!existingEventType.scheduleId || existingEventType.users.length === 0) {
-    // If it exists but has no schedule, or no users linked, update it
-    await prisma.eventType.update({
-      where: { id: existingEventType.id },
-      data: { 
-        scheduleId: schedule.id,
-        users: {
-          connect: [{ id: user.id }],
-        },
-      },
-    });
-    console.log(`Event type '30min' updated/linked for ${username}`);
-  }
-
+  await ensureDefaultEventType(user, schedule);
+  
   return user;
 }
-
-async function main() {
+async function main(): Promise<void> {
   const mode = process.argv[2];
 
   if (mode === 'seed-test') {
@@ -149,11 +154,15 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
+
+export { createShadowUser, updateAvailability };

@@ -114,6 +114,20 @@ DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso
 # Sync a specific user from your app
 DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts sync <email> <name> <username>
 
+### Using the Bridge API (Remote Access)
+We have added a **Bridge API** running on port `3002` to allow remote user creation.
+
+**Endpoint**: `POST http://<your-calcom-ip>:3002/sync`
+**Headers**: `Authorization: Bearer my-secret-key`
+
+**Example Request:**
+```bash
+curl -X POST http://localhost:3002/sync \
+  -H "Authorization: Bearer my-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "remote@example.com", "name": "Remote User", "username": "remote-user"}'
+```
+
 # Update user availability (Working Hours)
 # Usage: update-availability <username> <days:1,2,3> <start:HH:mm:ss> <end:HH:mm:ss>
 DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts update-availability user-b 1,3,5 10:00:00 16:00:00

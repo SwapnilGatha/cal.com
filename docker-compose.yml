@@ -70,6 +70,24 @@ services:
     depends_on:
       - database
 
+  calcom-sync-api:
+    image: calcom.docker.scarf.sh/calcom/cal.com:v6.0.7-arm
+    working_dir: /calcom
+    command: npx ts-node --transpile-only packages/prisma/sync-server.ts
+    ports:
+      - 3002:3002
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - SYNC_API_SECRET=my-secret-key
+    volumes:
+      - ./packages/prisma:/calcom/packages/prisma
+    networks:
+      - stack
+    depends_on:
+      - database
+
   calcom-api:
     container_name: calcom-api
     build:
