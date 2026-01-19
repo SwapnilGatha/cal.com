@@ -67,8 +67,20 @@ services:
       - WEBAPP_URL=http://localhost:3000
       - NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
       - NEXTAUTH_URL=http://localhost:3000
+      - EMAIL_SERVER_HOST=mailhog
     depends_on:
       - database
+      - mailhog
+
+  mailhog:
+    container_name: mailhog
+    image: mailhog/mailhog
+    restart: always
+    networks:
+      - stack
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   calcom-sync-api:
     image: calcom.docker.scarf.sh/calcom/cal.com:v6.0.7-arm
