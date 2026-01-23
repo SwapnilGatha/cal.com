@@ -53,6 +53,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
+      - WEBAPP_URL=${WEBAPP_URL}
+      - NEXT_PUBLIC_WEBAPP_URL=${NEXT_PUBLIC_WEBAPP_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
     depends_on:
       - database
     deploy:
@@ -77,6 +80,9 @@ services:
       - DATABASE_READ_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
       - DATABASE_WRITE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
+      - WEBAPP_URL=${WEBAPP_URL}
+      - NEXT_PUBLIC_WEBAPP_URL=${NEXT_PUBLIC_WEBAPP_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - REDIS_URL=redis://redis:6379
@@ -102,6 +108,9 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
       - SYNC_API_SECRET=${SYNC_API_SECRET}
+    volumes:
+      - ./packages/prisma:/calcom/packages/prisma
+    working_dir: /calcom
     command: npx ts-node --transpile-only packages/prisma/sync-server.ts
     depends_on:
       - database
