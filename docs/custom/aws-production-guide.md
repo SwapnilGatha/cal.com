@@ -138,6 +138,20 @@ docker exec calcom npx prisma migrate deploy
 DATABASE_URL="postgresql://unicorn_user:magical_password@localhost:5433/calendso" npx ts-node --transpile-only packages/prisma/shadow-user-sync.ts seed-test
 ```
 
+### 9. Bridge API Verification
+Once the stack is running, verify the sync API is reachable from your backend server:
+
+```bash
+# From your main application server:
+curl -X POST https://your-calcom-domain.com:3002/sync \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_SYNC_API_SECRET" \
+-d '{"email":"test@example.com", "name":"Test User", "username":"test-sync"}'
+```
+
+> [!TIP]
+> **Port 3002**: Ensure port 3002 is open in your AWS Security Group, restricted to your backend's IP for maximum security.
+
 ---
 
 ## 8. Maintenance & Updates

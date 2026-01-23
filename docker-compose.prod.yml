@@ -88,3 +88,24 @@ services:
       resources:
         limits:
           memory: 1G
+
+  calcom-sync-api:
+    container_name: calcom-sync-api
+    image: calcom.docker.scarf.sh/calcom/cal.com:v6.0.7
+    restart: always
+    networks:
+      - stack
+    ports:
+      - 3002:3002
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
+      - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
+      - SYNC_API_SECRET=${SYNC_API_SECRET}
+    command: npx ts-node --transpile-only packages/prisma/sync-server.ts
+    depends_on:
+      - database
+    deploy:
+      resources:
+        limits:
+          memory: 512M

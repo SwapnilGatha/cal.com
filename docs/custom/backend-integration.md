@@ -101,9 +101,69 @@ async function createShadowUser(email, name, username) {
 
 ---
 
-## Security Note
-*   **Docker Exec approach**: Requires your backend process to have permissions to run `docker`.
-*   **Database approach**: Requires exposing the PostgreSQL port (5432) to your backend service. Ensure you use firewall rules (Security Groups) to restrict access only to your backend IP.
+## Approach 3: Using the Bridge API (Recommended for Production / Remote Backends)
+
+If your backend is on a separate server (like a remote AWS instance), you can use the **Bridge API** we implemented. This avoids exposing your database port publicly.
+
+### Prerequisites
+1. Ensure the `calcom-sync-api` container is running (on port 3002).
+2. Ensure your AWS Security Group allows inbound traffic on port `3002` from your backend's IP.
+
+### Example: Calling the API via Node.js
+
+```javascript
+const axios = require('axios');
+
+async function syncToCalCom(email, name, username) {
+  try {
+    const response = await axios.post('http://<CALCOM_SERVER_IP>:3002/sync', {
+      email,
+      name,
+      username
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.SYNC_API_SECRET}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('✅ Bridge API Sync Success:', response.data);
+    return response.data.user;
+  } catch (error) {
+    console.error('❌ Bridge API Sync Failed:', error.response?.data || error.message);
+    throw error;
+  }
+}
+```
+
+---
+
+## Production Verification
+
+To verify that everything is working once deployed:
+
+### 1. Check Connectivity
+From your backend server, try to reach the Bridge API:
+```bash
+curl -I http://<CALCOM_SERVER_IP>:3002/sync
+```
+You should get a `405 Method Not Allowed` if it's reachable (since it's a GET request), or a `401 Unauthorized` if you send a POST without a token.
+
+### 2. Test User Creation
+Run a test `curl` command with your secret:
+```bash
+curl -X POST http://<CALCOM_SERVER_IP>:3002/sync \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer YOUR_SECRET_KEY" \
+-d '{
+  "email": "prod-test@example.com",
+  "name": "Production Test",
+  "username": "prod-verify"
+}'
+```
+
+### 3. Security Check
+Ensure that the database port (5433) is **not** accessible from the public internet, only from your backend's IP if you use Approach 2. Approach 3 (Bridge API) only requires port 3002.
 
 ## 4. Database Schema Recommendations
 
