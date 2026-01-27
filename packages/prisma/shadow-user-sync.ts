@@ -2,6 +2,13 @@ import process from 'node:process';
 import { prisma } from './index';
 import { hash } from 'bcryptjs';
 
+const SHADOW_USER_PASSWORD: string = process.env.SHADOW_USER_PASSWORD || 'shadow-password-123';
+const DEFAULT_TIMEZONE: string = process.env.DEFAULT_TIMEZONE || 'UTC';
+const DEFAULT_EVENT_TYPE_SLUG: string = process.env.DEFAULT_EVENT_TYPE_SLUG || '30min';
+const DEFAULT_EVENT_TYPE_TITLE: string = process.env.DEFAULT_EVENT_TYPE_TITLE || '30 Minute Meeting';
+const DEFAULT_WORKING_HOURS_START: string = process.env.DEFAULT_WORKING_HOURS_START || '09:00:00';
+const DEFAULT_WORKING_HOURS_END: string = process.env.DEFAULT_WORKING_HOURS_END || '17:00:00';
+
 async function updateAvailability(userId: number, scheduleId: number, days: number[], startTimeStr: string, endTimeStr: string): Promise<void> {
   // Delete existing availability for this schedule to reset it
   await prisma.availability.deleteMany({
@@ -32,7 +39,7 @@ interface SimpleUser {
 }
 
 async function ensureDefaultEventType(user: SimpleUser, schedule: SimpleSchedule): Promise<void> {
-  const eventTypeSlug = '30min';
+  const eventTypeSlug = DEFAULT_EVENT_TYPE_SLUG;
   const existingEventType = await prisma.eventType.findFirst({
     where: { userId: user.id, slug: eventTypeSlug },
     include: { users: true },
@@ -41,7 +48,7 @@ async function ensureDefaultEventType(user: SimpleUser, schedule: SimpleSchedule
   if (!existingEventType) {
     await prisma.eventType.create({
       data: {
-        title: '30 Minute Meeting',
+        title: DEFAULT_EVENT_TYPE_TITLE,
         slug: eventTypeSlug,
         length: 30,
         userId: user.id,
@@ -51,7 +58,7 @@ async function ensureDefaultEventType(user: SimpleUser, schedule: SimpleSchedule
         users: { connect: [{ id: user.id }] },
       },
     });
-    console.log(`Event type '30min' created for ${user.username}`);
+    console.log(`Event type '${eventTypeSlug}' created for ${user.username}`);
   } else if (!existingEventType.scheduleId || existingEventType.users.length === 0) {
     // If it exists but has no schedule, or no users linked, update it
     await prisma.eventType.update({
@@ -61,13 +68,13 @@ async function ensureDefaultEventType(user: SimpleUser, schedule: SimpleSchedule
         users: { connect: [{ id: user.id }] },
       },
     });
-    console.log(`Event type '30min' updated/linked for ${user.username}`);
+    console.log(`Event type '${eventTypeSlug}' updated/linked for ${user.username}`);
   }
 }
 
 async function createShadowUser(email: string, fullName: string, username: string): Promise<SimpleUser> {
   // 1. Hash a default password (they won't use it, but Cal.com requires it)
-  const hashedPassword = await hash('shadow-password-123', 12);
+  const hashedPassword = await hash(SHADOW_USER_PASSWORD, 12);
 
   // 2. Create User
   const user = await prisma.user.upsert({
@@ -80,7 +87,7 @@ async function createShadowUser(email: string, fullName: string, username: strin
       password: { create: { hash: hashedPassword } },
       identityProvider: 'CAL',
       completedOnboarding: true,
-      timeZone: 'UTC',
+      timeZone: DEFAULT_TIMEZONE,
     },
   });
 
@@ -96,12 +103,12 @@ async function createShadowUser(email: string, fullName: string, username: strin
       data: {
         userId: user.id,
         name: 'Default Schedule',
-        timeZone: 'UTC',
+        timeZone: DEFAULT_TIMEZONE,
       },
     });
 
     // 4. Add Working Hours (Mon-Fri, 9:00 - 17:00) by default
-    await updateAvailability(user.id, schedule.id, [1, 2, 3, 4, 5], '09:00:00', '17:00:00');
+    await updateAvailability(user.id, schedule.id, [1, 2, 3, 4, 5], DEFAULT_WORKING_HOURS_START, DEFAULT_WORKING_HOURS_END);
     console.log(`Default schedule created for ${username}`);
   }
 
