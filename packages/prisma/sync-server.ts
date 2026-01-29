@@ -18,6 +18,11 @@ interface AvailabilityRequest {
   endTime: string;
 }
 
+interface BookingsRequest {
+  username: string;
+  type?: 'all' | 'upcoming' | 'past' | 'canceled' | 'pending' | 'recurring';
+}
+
 async function handleSync(data: SyncRequest, res: http.ServerResponse): Promise<void> {
   const { email, name, username } = data;
   if (!email || !name || !username) throw new Error('Missing require fields: email, name, username');
@@ -25,6 +30,65 @@ async function handleSync(data: SyncRequest, res: http.ServerResponse): Promise<
   const user = await createShadowUser(email, name, username);
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ success: true, user: { id: user.id, username: user.username } }));
+}
+
+async function handleGetBookings(data: BookingsRequest, res: http.ServerResponse): Promise<void> {
+  const { username, type = 'upcoming' } = data;
+  if (!username) throw new Error('Missing username');
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { prisma } = require('./index');
+  const user = await prisma.user.findFirst({ where: { username } });
+  if (!user) throw new Error('User not found');
+
+  const now = new Date();
+  const where: Record<string, unknown> = { userId: user.id };
+
+  switch (type) {
+    case 'upcoming':
+      where.startTime = { gte: now };
+      where.status = { notIn: ['CANCELLED', 'REJECTED'] };
+      break;
+    case 'past':
+      where.startTime = { lt: now };
+      break;
+    case 'canceled':
+      where.status = 'CANCELLED';
+      break;
+    case 'pending':
+      where.status = { in: ['PENDING', 'AWAITING_HOST'] };
+      break;
+    case 'recurring':
+      where.recurringEventId = { not: null };
+      break;
+    case 'all':
+    default:
+      break;
+  }
+
+  let orderDirection: 'asc' | 'desc' = 'asc';
+  if (type === 'past') {
+    orderDirection = 'desc';
+  }
+
+  const bookings = await prisma.booking.findMany({
+    where,
+    include: {
+      attendees: true,
+      eventType: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          length: true,
+        },
+      },
+    },
+    orderBy: { startTime: orderDirection },
+  });
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ success: true, bookings }));
 }
 
 async function handleAvailability(data: AvailabilityRequest, res: http.ServerResponse): Promise<void> {
@@ -78,9 +142,10 @@ const server: http.Server = http.createServer(async (req, res) => {
       const data = JSON.parse(body);
       if (req.url === '/sync') await handleSync(data, res);
       else if (req.url === '/availability') await handleAvailability(data, res);
+      else if (req.url === '/bookings') await handleGetBookings(data, res);
       else {
         res.writeHead(404);
-        res.end(JSON.stringify({ error: 'Not Found' }));
+        res.end(JSON.stringify({ error: 'Not Found', url: req.url }));
       }
     } catch (error) {
        const err = error as Error;

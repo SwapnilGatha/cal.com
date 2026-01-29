@@ -138,6 +138,46 @@ async function syncToCalCom(email, name, username) {
 
 ---
 
+---
+
+## Approach 4: Retrieving Bookings via Bridge API
+
+You can retrieve a user's bookings (upcoming, past, unconfirmed, etc.) using the `/bookings` endpoint.
+
+### Example: Fetching Bookings via Node.js
+
+```javascript
+const axios = require('axios');
+
+async function getBookings(username, type = 'upcoming') {
+  try {
+    const response = await axios.post('http://<CALCOM_SERVER_IP>:3002/bookings', {
+      username,
+      type // 'all', 'upcoming', 'past', 'canceled', 'pending', 'recurring'
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.SYNC_API_SECRET}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(`✅ Retrieved ${type} bookings:`, response.data.bookings);
+    return response.data.bookings;
+  } catch (error) {
+    console.error('❌ Failed to fetch bookings:', error.response?.data || error.message);
+    throw error;
+  }
+}
+```
+
+### Supported Types
+- `upcoming`: Future bookings with status `ACCEPTED`, `PENDING`, or `AWAITING_HOST`.
+- `past`: Bookings that have already ended.
+- `canceled`: Bookings with status `CANCELLED`.
+- `pending`: Bookings with status `PENDING` or `AWAITING_HOST`.
+- `recurring`: Bookings that are part of a recurring series.
+- `all`: Every booking associated with the user.
+
 ## Production Verification
 
 To verify that everything is working once deployed:
