@@ -22,6 +22,8 @@ coverage
 .next/
 out/
 build
+out-api/
+out-sync/
 
 # misc
 .DS_Store
