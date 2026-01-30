@@ -1,4 +1,5 @@
 #!/bin/bash
+export DOCKER_API_VERSION=1.44
 
 # Load environment variables
 if [ -f .env ]; then
