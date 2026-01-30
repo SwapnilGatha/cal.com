@@ -9,9 +9,14 @@ WORKDIR /calcom
 # Install dependencies for native modules
 RUN apk add --no-cache libc6-compat openssl
 
-# Copy dependency files
-COPY package.json yarn.lock .yarnrc.yml ./
-COPY .yarn ./.yarn
+# Copy pruned dependency files
+COPY out-api/json/ .
+COPY out-api/yarn.lock ./yarn.lock
+COPY .yarnrc.yml ./
+
+# Remove postinstall scripts to prevent failures in Docker
+RUN find . -name "package.json" -exec sed -i '/"postinstall":/d' {} + && \
+    find . -name "package.json" -exec sed -i '/"post-install":/d' {} +
 
 # Install dependencies (skip scripts for Docker build)
 RUN yarn config set httpTimeout 1200000 && \
@@ -38,8 +43,10 @@ ENV NODE_ENV=production \
     DATABASE_DIRECT_URL=${DATABASE_DIRECT_URL} \
     DATABASE_URL=${DATABASE_URL}
 
-# Copy all files
-COPY . .
+# Copy all pruned source files
+COPY out-api/full/ .
+COPY out-api/yarn.lock ./yarn.lock
+COPY .yarnrc.yml ./
 
 # Install all dependencies (including dev for build, skip scripts)
 RUN yarn config set httpTimeout 1200000 && \

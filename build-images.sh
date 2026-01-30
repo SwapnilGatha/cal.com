@@ -16,6 +16,9 @@ WEB_IMAGE_NAME="calcom-web"
 API_IMAGE_NAME="calcom-api"
 SYNC_IMAGE_NAME="calcom-sync"
 TAG="latest"
+echo "Pruning workspaces with Turbo..."
+./node_modules/.bin/turbo prune --scope=@calcom/api-v2 --docker --out-dir out-api
+./node_modules/.bin/turbo prune --scope=@calcom/prisma --docker --out-dir out-sync
 
 echo "Building Cal.com Web Image..."
 docker build --platform linux/amd64 \
