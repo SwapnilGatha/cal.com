@@ -1,0 +1,97 @@
+# Production-optimized multi-stage Dockerfile for Cal.com API (Node.js)
+# Expected size: ~400-600MB
+
+# Stage 1: Install production dependencies
+FROM node:20-alpine AS deps
+
+WORKDIR /calcom
+
+# Install dependencies for native modules
+RUN apk add --no-cache libc6-compat openssl
+
+# Copy dependency files
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn ./.yarn
+
+# Install dependencies (skip scripts for Docker build)
+RUN yarn config set httpTimeout 1200000 && \
+    YARN_ENABLE_SCRIPTS=false yarn install && \
+    rm -rf .yarn/cache
+
+# Stage 2: Build application
+FROM node:20-alpine AS builder
+
+ARG DATABASE_DIRECT_URL
+ARG DATABASE_URL
+
+WORKDIR /calcom
+
+# Install build dependencies
+RUN apk add --no-cache libc6-compat openssl python3 make g++
+
+# Link SSL library for Prisma
+RUN ln -s /usr/lib/libssl.so.3 /lib/libssl.so.3
+
+# Environment variables
+ENV NODE_ENV=production \
+    NODE_OPTIONS=--max-old-space-size=8192 \
+    DATABASE_DIRECT_URL=${DATABASE_DIRECT_URL} \
+    DATABASE_URL=${DATABASE_URL}
+
+# Copy all files
+COPY . .
+
+# Install all dependencies (including dev for build, skip scripts)
+RUN yarn config set httpTimeout 1200000 && \
+    YARN_ENABLE_SCRIPTS=false yarn install
+
+# Build API and dependencies
+RUN yarn workspace @calcom/api-v2 run generate-schemas && \
+    yarn workspace @calcom/platform-libraries run build && \
+    yarn workspace @calcom/api-v2 run build
+
+# Clean up build artifacts
+RUN rm -rf node_modules/.cache .yarn/cache
+
+# Stage 3: Production runtime
+FROM node:20-alpine AS runner
+
+WORKDIR /calcom
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    openssl \
+    ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+# Link SSL library for Prisma
+RUN ln -s /usr/lib/libssl.so.3 /lib/libssl.so.3
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 apiuser
+
+# Copy production dependencies
+COPY --from=deps --chown=apiuser:nodejs /calcom/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder --chown=apiuser:nodejs /calcom/package.json /calcom/yarn.lock /calcom/.yarnrc.yml ./
+COPY --from=builder --chown=apiuser:nodejs /calcom/.yarn ./.yarn
+COPY --from=builder --chown=apiuser:nodejs /calcom/apps ./apps
+COPY --from=builder --chown=apiuser:nodejs /calcom/packages ./packages
+COPY --from=builder --chown=apiuser:nodejs /calcom/turbo.json ./
+
+# Environment variables
+ENV NODE_ENV=production \
+    NODE_OPTIONS=--max-old-space-size=4096
+
+# Switch to non-root user
+USER apiuser
+
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
+    CMD wget --spider http://localhost:80/api/health || exit 1
+
+CMD ["yarn", "workspace", "@calcom/api-v2", "start:prod"]

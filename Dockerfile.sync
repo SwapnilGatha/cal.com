@@ -1,0 +1,89 @@
+# Production-optimized Dockerfile for Cal.com Sync API
+# Expected size: ~800MB-1GB
+
+# Stage 1: Install production dependencies
+FROM node:20-alpine AS deps
+
+WORKDIR /calcom
+
+# Install dependencies for native modules
+RUN apk add --no-cache libc6-compat openssl
+
+# Copy dependency files
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn ./.yarn
+
+# Install dependencies (skip scripts for Docker build)
+RUN yarn config set httpTimeout 1200000 && \
+    YARN_ENABLE_SCRIPTS=false yarn install && \
+    rm -rf .yarn/cache
+
+# Stage 2: Build application
+FROM node:20-alpine AS builder
+
+ARG DATABASE_URL
+ARG DATABASE_DIRECT_URL
+
+WORKDIR /calcom
+
+# Install build dependencies
+RUN apk add --no-cache libc6-compat openssl python3 make g++
+
+# Environment variables
+ENV NODE_ENV=production \
+    DATABASE_URL=${DATABASE_URL} \
+    DATABASE_DIRECT_URL=${DATABASE_DIRECT_URL}
+
+# Copy all files
+COPY package.json yarn.lock .yarnrc.yml turbo.json i18n.json ./
+COPY .yarn ./.yarn
+COPY packages ./packages
+
+# Install all dependencies (skip scripts)
+RUN yarn config set httpTimeout 1200000 && \
+    YARN_ENABLE_SCRIPTS=false yarn install
+
+# Generate Prisma client
+RUN yarn workspace @calcom/prisma prisma generate
+
+# Clean up build artifacts
+RUN rm -rf node_modules/.cache .yarn/cache
+
+# Stage 3: Production runtime
+FROM node:20-alpine AS runner
+
+WORKDIR /calcom
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    openssl \
+    ca-certificates \
+    netcat-openbsd \
+    wget && \
+    rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 syncapi
+
+# Copy production dependencies and built files
+COPY --from=deps --chown=syncapi:nodejs /calcom/node_modules ./node_modules
+COPY --from=builder --chown=syncapi:nodejs /calcom/package.json /calcom/yarn.lock /calcom/.yarnrc.yml ./
+COPY --from=builder --chown=syncapi:nodejs /calcom/.yarn ./.yarn
+COPY --from=builder --chown=syncapi:nodejs /calcom/packages ./packages
+
+# Environment variables
+ENV NODE_ENV=production \
+    NODE_OPTIONS=--max-old-space-size=2048
+
+# Switch to non-root user
+USER syncapi
+
+EXPOSE 3002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
+    CMD wget --spider http://localhost:3002/health || exit 1
+
+# Run sync server
+CMD ["npx", "ts-node", "--transpile-only", "packages/prisma/sync-server.ts"]

@@ -9,10 +9,14 @@ dist
 **/dist
 build
 **/build
+out
+**/out
 
 # Git
 .git
 .github
+.gitignore
+.gitattributes
 
 # Testing
 coverage
@@ -21,16 +25,70 @@ test-results
 **/test-results
 .turbo
 **/.turbo
+tests
+**/tests
+__tests__
+**/__tests__
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+.circleci
+.jenkins
+
+# Development tools
+.vscode
+.idea
+.cursor
+*.swp
+*.swo
+*~
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
 # OS
 .DS_Store
 Thumbs.db
+*.pid
+*.seed
+*.pid.lock
 
 # Examples and docs
 docs
+example-apps
+README.md
+CONTRIBUTING.md
+LICENSE
+*.md
+
+# Cache directories
+.cache
+**/.cache
+.eslintcache
+.stylelintcache
+
+# Environment files (should be mounted at runtime)
+.env
+.env.*
+!.env.example
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+.husky
+.changeset
+.snaplet
+.well-known
